@@ -18,24 +18,14 @@ const dictionary = {
     car:"गाडी", bus:"बस", motorcycle:"बाईक"
 };
 
-/* ===== SAFE SPEECH FUNCTION (Mobile Friendly) ===== */
+/* ===== GOOGLE TTS (WORKS ON ALL PHONES) ===== */
 function speak(text){
-    if (!window.speechSynthesis) return;
-
-    const speech = new SpeechSynthesisUtterance(text);
-    speech.rate = 1;
-
-    const voices = speechSynthesis.getVoices();
-    const marathiVoice = voices.find(v => v.lang === "mr-IN");
-
-    if (marathiVoice) {
-        speech.voice = marathiVoice;
-    } else {
-        speech.lang = "mr-IN"; // fallback
-    }
-
-    speechSynthesis.cancel(); // stop previous speech
-    speechSynthesis.speak(speech);
+    const audio = new Audio(
+        "https://translate.google.com/translate_tts?ie=UTF-8&q="
+        + encodeURIComponent(text)
+        + "&tl=mr&client=tw-ob"
+    );
+    audio.play();
 }
 
 /* ===== CAMERA ===== */
