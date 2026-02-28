@@ -7,7 +7,7 @@ const loadingOverlay = document.getElementById("loading-overlay");
 
 let model = null;
 let scanning = false;
-let totalCount = 0; // Linked to stats page
+let totalCount = 0;
 
 const dictionary = {
     person:"माणूस", chair:"खुर्ची", table:"टेबल", bed:"पलंग",
@@ -18,12 +18,23 @@ const dictionary = {
     car:"गाडी", bus:"बस", motorcycle:"बाईक"
 };
 
-/* ===== YOUR PREFERRED SPEECH LOGIC ===== */
+/* ===== SAFE SPEECH FUNCTION (Mobile Friendly) ===== */
 function speak(text){
-    if (speechSynthesis.speaking) return;
+    if (!window.speechSynthesis) return;
+
     const speech = new SpeechSynthesisUtterance(text);
-    speech.lang = "mr-IN";
     speech.rate = 1;
+
+    const voices = speechSynthesis.getVoices();
+    const marathiVoice = voices.find(v => v.lang === "mr-IN");
+
+    if (marathiVoice) {
+        speech.voice = marathiVoice;
+    } else {
+        speech.lang = "mr-IN"; // fallback
+    }
+
+    speechSynthesis.cancel(); // stop previous speech
     speechSynthesis.speak(speech);
 }
 
@@ -31,13 +42,16 @@ function speak(text){
 navigator.mediaDevices.getUserMedia({
     video:{facingMode:"environment", width:240, height:180}
 })
-.then(stream=>{ video.srcObject = stream; })
-.catch(err=>{ status.innerText = "Camera access denied"; });
+.then(stream=>{
+    video.srcObject = stream;
+})
+.catch(()=>{
+    status.innerText = "Camera access denied";
+});
 
 /* ===== LOAD MODEL ===== */
 async function loadAI(){
     try{
-        // Progress bar simulation
         let p = 0;
         let timer = setInterval(() => {
             p += 5;
@@ -45,13 +59,11 @@ async function loadAI(){
         }, 150);
 
         model = await cocoSsd.load({ base:"lite_mobilenet_v2" });
-        
+
         clearInterval(timer);
         progressFill.style.width = "100%";
-        
         status.innerText = "सिस्टम तयार आहे!";
-        
-        // Hide loader and show start button
+
         setTimeout(() => {
             loadingOverlay.style.opacity = "0";
             setTimeout(() => {
@@ -65,36 +77,40 @@ async function loadAI(){
     }
 }
 
-/* ===== DETECT LOGIC (YOUR ORIGINAL) ===== */
+/* ===== DETECTION ===== */
 let lastObject = "";
 let lastTime = 0;
 
 async function detect(){
     if(!model) return;
+
     const predictions = await model.detect(video);
 
     if(predictions.length > 0){
+
         if(predictions[0].score < 0.6) return;
 
         const rawObj = predictions[0].class;
         const obj = dictionary[rawObj] || rawObj;
         const bbox = predictions[0].bbox;
+
         const dist = (250 / bbox[2]).toFixed(1);
 
-        // Update stats page counter
         totalCount++;
         const countDisplay = document.getElementById("obj-count");
         if(countDisplay) countDisplay.innerText = totalCount;
 
         const center = bbox[0] + bbox[2]/2;
         let direction = "समोर";
+
         if(center < video.videoWidth * 0.33) direction = "डावीकडे";
         else if(center > video.videoWidth * 0.66) direction = "उजवीकडे";
 
         resultText.innerText = `${direction} ${obj} आहे (${dist}m)`;
 
         const now = Date.now();
-        if(obj !== lastObject || now - lastTime > 2000){
+
+        if(obj !== lastObject || now - lastTime > 2500){
             speak(`${direction} ${obj} आहे. अंतर ${dist} मीटर.`);
             lastObject = obj;
             lastTime = now;
@@ -108,7 +124,7 @@ async function detectLoop(){
     requestAnimationFrame(detectLoop);
 }
 
-/* ===== BUTTON CLICK ===== */
+/* ===== BUTTON ===== */
 scanBtn.onclick = () => {
     speak("स्कॅनिंग सुरू झाले");
     scanBtn.style.display = "none";
